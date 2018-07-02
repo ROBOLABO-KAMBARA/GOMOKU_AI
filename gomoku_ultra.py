@@ -5,16 +5,17 @@ import random
 import glob
 import sys
 import copy
+import heapq
 #2018/06/19
 #made by Kazunari Morita
 
 
-P1 = 1 #先手:Player=0, COM>=1
-P2 = 1#後手
+P1 = 2 #先手:Player=0, COM>=1
+P2 = 1 #後手
 
 SCORE_SHOW = 0 #HIDDEN=0, SHOW=1
 
-game_num = 1 #ゲーム回数
+game_num = 100 #ゲーム回数
 
 #色の定義
 SPACE = 0
@@ -44,7 +45,7 @@ class Stone_array:
                 elif next_turn == BLACK and self.stone_num == 4:
                     return 999999
                 if next_turn == BLACK:
-                    return int(pow(10, self.stone_num-1)*2)
+                    return int(pow(10, self.stone_num-1)*3)
                 else:
                     return int(pow(10, self.stone_num-1))
 
@@ -54,7 +55,7 @@ class Stone_array:
                 elif next_turn == WHITE and self.stone_num == 4:
                     return -999999
                 if next_turn == WHITE:
-                    return -int(pow(10, self.stone_num-1)*2)
+                    return -int(pow(10, self.stone_num-1)*3)
                 else:
                     return -int(pow(10, self.stone_num-1))
             return 0
@@ -243,7 +244,7 @@ class Gomokunarabe_tree:
         print ('先手の番')
 
         if P1 > 0: #COM
-            value, i, j = self.search_AI(1, P1)
+            value, i, j = self.search_AI(1, 5, P1)
             p_x_pos = i
             p_y_pos = j
             print(value, i, j)
@@ -265,7 +266,7 @@ class Gomokunarabe_tree:
         print ('後手の番')
         
         if P2 > 0: #COM
-            value, i, j = self.search_AI(2, P2)
+            value, i, j = self.search_AI(2, 5, P2)
             p_x_pos = i
             p_y_pos = j
             print(value, i, j)
@@ -284,27 +285,22 @@ class Gomokunarabe_tree:
 
 
     #AI
-    def search_AI(self, turn ,depth):
+    def search_AI(self, turn , leaf_num, depth):
         if depth == 0:
             if turn == BLACK:
                 return self.score(BLACK), 0, 0
             else:
                 return self.score(WHITE), 0, 0
         
-        if turn == BLACK:
-            value = -10000000
-            v = 0
-        else:
-            value = 10000000
-            v = 0
         move = []
+        score_list = []
         start_flag = 1
         for i in range(15):
             for j in range(15):
                 side_flag = 0
-                for k in range(5):
-                    for l in range(5):
-                        if(i+(k-2)>=0 and i+(k-2)< 15 and j+(l-2)>=0 and j+(l-2)<15 and self.screen[i+(k-2)][j+(l-2)]!=0):
+                for k in range(3):
+                    for l in range(3):
+                        if(i+(k-1)>=0 and i+(k-1)< 15 and j+(l-1)>=0 and j+(l-1)<15 and self.screen[i+(k-1)][j+(l-1)]!=0):
                             side_flag = 1
                 if self.screen[i][j]==0 and side_flag==1:
                     start_flag = 0
@@ -312,7 +308,7 @@ class Gomokunarabe_tree:
                     #手を指す
                     b.update(j, i, turn)
                     #b.display_screen()
-                    print(v, j+1, i+1)
+                    #print(v, j+1, i+1)
                     if turn == BLACK:
                         v = b.score(WHITE)
                         if v == 9999999:
@@ -321,24 +317,34 @@ class Gomokunarabe_tree:
                         v = b.score(BLACK)
                         if v < -9999999:
                             return v, j+1, i+1
-                    #print(v)
-                    if turn == BLACK:
-                        v, a, b = b.search_AI(WHITE, depth - 1)
-                        if value < v:
-                            value = v
-                            move = [[j+1, i+1]]
-                        elif value == v:
-                            move.append([j+1,i+1])
-                    else:
-                        v, a, b = b.search_AI(BLACK, depth - 1)
-                        if value > v:
-                            value = v
-                            move= [[j+1, i+1]]
-                        elif value == v:
-                            move.append([j+1,i+1])
+                    score_list.append([v, b, [j+1, i+1]])
+        v=0
+        #上位leaf位を抽出
+        if turn == BLACK:
+            value = -100000000
+            leaf_list = heapq.nlargest(leaf_num, score_list, key=lambda x:x[0])
+            print('LofL', leaf_list)
+            for leaf in leaf_list:
+                v, a, b = leaf[1].search_AI(WHITE, leaf_num, depth-1)
+                if value < v:
+                    value = v
+                    move = [leaf[2]]
+                elif value == v:
+                    move.append(leaf[2])
+        else:
+            value = 100000000
+            leaf_list = heapq.nsmallest(leaf_num, score_list, key=lambda x:x[0])
+            print('LofL', leaf_list)
+            for leaf in leaf_list:
+                v, a, b = leaf[1].search_AI(BLACK, leaf_num, depth - 1)
+                if value > v:
+                    value = v
+                    move= [leaf[2]]
+                elif value == v:
+                    move.append(leaf[2])
         if start_flag == 1:
             return 0, 8, 8
-        print(move, ':' ,value)
+        #print(move, ':' ,value)
         #print('.', end='')
         b = None
         m = random.choice(move)
